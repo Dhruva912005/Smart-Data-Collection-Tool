@@ -30,14 +30,15 @@ def generate_image_dataset(topic: str, n: int = 10, timeout_limit: int = 180) ->
         results = []
         for attempt in range(3):
             try:
-                results = ddgs.images(
+                # Force generator evaluation inside the try block to safely catch exceptions
+                results = list(ddgs.images(
                     keywords=topic,
-                    max_results=n
-                )
+                    max_results=min(n, 20)
+                ))
                 break
             except RatelimitException:
                 if attempt < 2:
-                    time.sleep(2)
+                    time.sleep(2 * (attempt + 1))
                 else:
                     results = []
             except Exception:
