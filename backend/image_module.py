@@ -3,6 +3,7 @@ import requests
 import zipfile
 import time
 from duckduckgo_search import DDGS
+from duckduckgo_search.exceptions import RatelimitException
 
 def generate_image_dataset(topic: str, n: int = 10, timeout_limit: int = 180) -> tuple:
     """
@@ -25,11 +26,23 @@ def generate_image_dataset(topic: str, n: int = 10, timeout_limit: int = 180) ->
     timeout_occurred = False
 
     with DDGS() as ddgs:
-        # Generate DDGS image results
-        results = ddgs.images(
-            keywords=topic,
-            max_results=n
-        )
+        # Generate DDGS image results with retry mechanism
+        results = []
+        for attempt in range(3):
+            try:
+                results = ddgs.images(
+                    keywords=topic,
+                    max_results=n
+                )
+                break
+            except RatelimitException:
+                if attempt < 2:
+                    time.sleep(2)
+                else:
+                    results = []
+            except Exception:
+                results = []
+                break
 
         for i, result in enumerate(results):
             

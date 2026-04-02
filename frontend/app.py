@@ -33,15 +33,19 @@ with st.sidebar:
 
 # 🔹 4 & 6. Clean Input Layout & Spacing
 
-def get_keywords_from_categories(selected_categories, core_topic):
-    all_keywords = []
-    for cat in selected_categories:
-        all_keywords.extend(CATEGORIES.get(cat, []))
+def get_combined_keywords(specific_kws, custom_input, core_topic):
+    all_keywords = specific_kws.copy()
     
+    # Add custom user input keywords
+    if custom_input:
+        custom_list = [kw.strip() for kw in custom_input.split(",") if kw.strip()]
+        all_keywords.extend(custom_list)
+        
     # Add core topic variations if topic provided
     if core_topic:
-        base = core_topic.lower()
-        all_keywords.extend([base, f"{base} news", f"{base} market", f"{base} trends", f"{base} forecast"])
+        base = core_topic.lower().strip()
+        if base:
+            all_keywords.extend([base, f"{base} news", f"{base} market", f"{base} trends", f"{base} forecast"])
         
     # Deduplicate while preserving order
     unique_keywords = []
@@ -61,31 +65,64 @@ _, center_col, _ = st.columns([1, 10, 1])
 with center_col:
     with st.container():
         st.markdown("### 🔎 Query Configuration")
+        
+        st.markdown("#### 1️⃣ Custom Keywords & Core Topic")
         col1, col2 = st.columns([1, 2])
         with col1:
             topic = st.text_input("Core Topic (Optional Context):", placeholder="e.g., Gold, AI...")
         with col2:
+            custom_input = st.text_area("Custom Keywords (comma-separated):", key="custom_keywords_input", placeholder="e.g., machine learning, neural networks")
+            
+        st.markdown("**💡 Sample Keywords (Quick Add):**")
+        sample_kws = ["Data Science", "Cybersecurity", "Electric Vehicles", "Stock Market"]
+        samp_cols = st.columns(len(sample_kws))
+        
+        def add_sample(kw):
+            current = st.session_state.get("custom_keywords_input", "")
+            if kw not in current:
+                st.session_state["custom_keywords_input"] = current + (", " if current else "") + kw
+        
+        for i, col in enumerate(samp_cols):
+            col.button(sample_kws[i], on_click=add_sample, args=(sample_kws[i],), key=f"btn_sample_{i}")
+
+        st.markdown("<hr style='border-top: 1px dashed #4A5568;'>", unsafe_allow_html=True)
+        
+        st.markdown("#### 2️⃣ Select from Categories")
+        cat_col1, cat_col2 = st.columns([1, 2])
+        with cat_col1:
             selected_cats = st.multiselect(
                 "Select Keyword Categories:",
                 options=list(CATEGORIES.keys()),
-                help="Choose one or more categories to auto-load associated keywords."
+                help="Choose categories to load predefined keywords."
             )
             
-    if selected_cats or topic:
+        available_cat_keywords = []
+        for cat in selected_cats:
+            available_cat_keywords.extend(CATEGORIES.get(cat, []))
+            
+        with cat_col2:
+            selected_specific_kws = st.multiselect(
+                "Select Specific Keywords:",
+                options=available_cat_keywords,
+                default=available_cat_keywords,
+                help="Pick exact keywords you want from the selected categories."
+            )
+            
+    if selected_specific_kws or topic or custom_input.strip():
         st.markdown("<br>", unsafe_allow_html=True)
         
         # 🔹 5. Keywords Display (UI Upgrade)
-        keywords = get_keywords_from_categories(selected_cats, topic)
+        keywords = get_combined_keywords(selected_specific_kws, custom_input, topic)
         st.session_state['active_keywords'] = keywords
         
         with st.container():
-            st.markdown("#### 🤖 Active Keywords (Auto from Categories)")
+            st.markdown("#### 🤖 Final Active Keywords")
             if keywords:
                 # Beautiful dark-themed pill badges
                 keywords_html = " ".join([f"<span style='background-color: #2D3748; border: 1px solid #4A5568; color: #E2E8F0; padding: 6px 14px; border-radius: 16px; margin: 4px; display: inline-block; font-weight: 500; font-size: 14px; box-shadow: 0px 2px 4px rgba(0,0,0,0.2);'>{kw}</span>" for kw in keywords])
                 st.markdown(f"<div style='padding: 10px 0; max-height: 300px; overflow-y: auto;'>{keywords_html}</div>", unsafe_allow_html=True)
             else:
-                st.warning("⚠️ Please select at least one category to populate keywords.")
+                st.warning("⚠️ No valid keywords generated. Please input or select keywords.")
                 
         st.markdown("<hr style='border-top: 1px solid #4A5568; margin: 30px 0;'>", unsafe_allow_html=True)
 
